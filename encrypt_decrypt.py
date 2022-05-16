@@ -1,3 +1,7 @@
+''''Julian
+ Keytanglement
+ '''
+
 from bitarray import bitarray
 
 def string_to_bits(message):

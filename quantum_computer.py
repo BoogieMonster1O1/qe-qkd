@@ -1,5 +1,4 @@
-"""Example usage of the Quantum Inspire backend with the Qiskit SDK.
-
+"""
 A simple example that demonstrates how to use the SDK to create
 a circuit to create a Bell state, and simulate the circuit on
 Quantum Inspire.
@@ -11,6 +10,8 @@ Specific to Quantum Inspire is the creation of the QI instance, which is used to
 of the user and provides a Quantum Inspire backend that is used to execute the circuit.
 
 Copyright 2018-19 QuTech Delft. Licensed under the Apache License, Version 2.0.
+
+Alexander and Nayana
 """
 import os
 import json
@@ -22,19 +23,21 @@ from qiskit.circuit import QuantumRegister, ClassicalRegister, QuantumCircuit
 from quantuminspire.credentials import get_basic_authentication
 from quantuminspire.qiskit import QI
 
-from utils import ROOT_DIR
-
 # print("Authenticating")
 QI_URL = os.getenv('API_URL', 'https://api.quantum-inspire.com/')
 
-with open(ROOT_DIR + "qi-auth.json", "r") as f:
+with open("qi-auth.json", "r") as f:
     auth = json.load(f)
 
 project_name = 'Keytanglement'
 authentication = get_basic_authentication(auth["email"], auth["pass"])
 QI.set_authentication(authentication, QI_URL, project_name=project_name)
 QI_BACKEND = QI.get_backend('QX single-node simulator')
-qbits = 4
+
+#####################
+# Bell State Set Up #
+#####################
+num_qbits_bell = 4
 
 class Pairing:
     def __init__(self, pair1, pair2):
@@ -72,8 +75,8 @@ def psi_minus(bit0, bit1, qc):
 # Generate pair-entangling circuits #
 #####################################
 def circuit00(pairs):
-    q = QuantumRegister(qbits)
-    b = ClassicalRegister(qbits)
+    q = QuantumRegister(num_qbits_bell)
+    b = ClassicalRegister(num_qbits_bell)
     qc = QuantumCircuit(q, b)
 
     phi_plus(q[pairs.bit0], q[pairs.bit1], qc)
@@ -83,8 +86,8 @@ def circuit00(pairs):
     return qc, q
 
 def circuit01(pairs):
-    q = QuantumRegister(qbits)
-    b = ClassicalRegister(qbits)
+    q = QuantumRegister(num_qbits_bell)
+    b = ClassicalRegister(num_qbits_bell)
     qc = QuantumCircuit(q, b)
 
     phi_minus(q[pairs.bit0], q[pairs.bit1], qc)
@@ -94,8 +97,8 @@ def circuit01(pairs):
     return qc, q
 
 def circuit10(pairs):
-    q = QuantumRegister(qbits)
-    b = ClassicalRegister(qbits)
+    q = QuantumRegister(num_qbits_bell)
+    b = ClassicalRegister(num_qbits_bell)
     qc = QuantumCircuit(q, b)
 
     psi_plus(q[pairs.bit0], q[pairs.bit1], qc)
@@ -105,8 +108,8 @@ def circuit10(pairs):
     return qc, q
 
 def circuit11(pairs):
-    q = QuantumRegister(qbits)
-    b = ClassicalRegister(qbits)
+    q = QuantumRegister(num_qbits_bell)
+    b = ClassicalRegister(num_qbits_bell)
     qc = QuantumCircuit(q, b)
 
     psi_minus(q[pairs.bit0], q[pairs.bit1], qc)
@@ -161,18 +164,46 @@ def reverse_circuit11(pairs, q, qc):
     psi_plus_reverse(q[pairs.bit2], q[pairs.bit3], qc)
     # print(qc)
 
-def verify_circuit(qc):
+##########################
+# Generate BB84 Circuits #
+##########################
+def add_init_1(bit, qc):
+    qc.x(bit)
+
+def add_x_basis_circuit(bit, qc):
+    qc.h(bit)
+
+###########################
+# Run and Verify Circuits #
+###########################
+def run_circuit(qc):
     job = execute(qc, backend=QI_BACKEND, shots=256)
     result = job.result()
     histogram = result.get_counts(qc)
+    return histogram
+
+def verify_circuit_bell(qc):
+    histogram = run_circuit(qc)
 
     # If Bob guessed Alice's qubit-pairs and Bell states correctly,
     # the final state of all qubits should be 0s
     state_list = list(histogram.keys())
     if (len(state_list) == 1 and state_list[0] == "0000"):
-        return 1
-    return 0
+        return 1, state_list
+    return 0, state_list
 
+def verify_circuit_bb84(qc):
+    #TODO need to return measurement as well
+    histogram = run_circuit(qc)
+
+    state_list = list(histogram.keys())
+    if (len(state_list) == 1):
+        return 1, state_list
+    return 0, state_list
+
+################################################
+# Process guesses using Bell State or BB84 QKD #
+################################################
 entangling_circuit_map = {0: circuit00, 1: circuit01, 2: circuit10, 3: circuit11}
 reversal_circuit_map = {0: reverse_circuit00, 1: reverse_circuit01, 2: reverse_circuit10, 3: reverse_circuit11}
 
@@ -194,7 +225,7 @@ Ex. Input: qpair[k] = [ [q1, q2], [q0, q3] ]
     => q1 and q2 are entangled using the phi+ Bell circuit
     => q0 and q3 are entangled using the phi- Bell circuit
 '''
-def quantum_compute(alice_data, bob_data):
+def quantum_compute_bell(alice_data, bob_data):
     alice_qpairs = alice_data["pairings"]
     alice_groupcodes = alice_data["groupings"]
 
@@ -203,6 +234,9 @@ def quantum_compute(alice_data, bob_data):
 
     # Keeps track of the indices in Bob's list that were correct guesses
     correct_guesses = []
+
+    #Bob keeps track of what he measures
+    bob_measurements = []
 
     for i in range(len(alice_qpairs)): # iterate over  qubit-pairs
 
@@ -221,7 +255,10 @@ def quantum_compute(alice_data, bob_data):
         reversal_circuit_map[bob_gc](qpairs, q, qc)
 
         # Add the index to the list of correct guesses to return to the users
-        if (verify_circuit(qc)):
+        verification, measurement = verify_circuit_bell(qc)
+        bob_measurements.append(measurement)
+
+        if verification:
             correct_guesses.append(i)
 
     alice_data["correct_measurements"] = correct_guesses
@@ -229,15 +266,63 @@ def quantum_compute(alice_data, bob_data):
 
     return alice_data, bob_data
 
+def quantum_compute_bb84(alice_data, bob_data):
+    alice_init = alice_data.init
+    alice_bases = alice_data.bases
+    num_qbits = 1 #only need 1 qubit per circuit for bb84
 
 
-def main(alice_fname, bob_fname):
+    bob_bases = bob_data.bases
+
+    correct_guesses = []
+    bob_measurements = []
+
+    for i in range(len(alice_init)):
+        alice_init_state = alice_init[i]
+        alice_basis = alice_bases[i]
+        bob_basis = bob_bases[i]
+
+        q = QuantumRegister(num_qbits)
+        b = ClassicalRegister(num_qbits)
+        qc = QuantumCircuit(q, b)
+        bit = q[0]
+
+        if alice_init_state == 1:
+            add_init_1(bit, qc)
+        
+        if alice_basis == 'X':
+            add_x_basis_circuit(bit, qc)
+        
+        if bob_basis == 'X':
+            add_x_basis_circuit(bit, qc)
+    
+        verification, measurement = verify_circuit_bb84(qc)
+        bob_measurements.append(measurement)
+
+        if verification:
+            correct_guesses.append(i)
+
+    alice_data["correct_measurements"] = correct_guesses
+    bob_data["correct-measurements"] = correct_guesses
+    bob_data["measurements"] = bob_measurements
+
+    return alice_data, bob_data
+
+def run_quantum_circuits(alice_fname, bob_fname):
     with open(alice_fname, "r") as f:
         alice_data = json.load(f)
     with open(bob_fname, "r") as f:
         bob_data = json.load(f)
 
-    alice_data, bob_data = quantum_compute(alice_data, bob_data)
+    if alice_data.type == "Bell" and bob_data.type == "Bell":
+        alice_data, bob_data = quantum_compute_bell(alice_data, bob_data)
+    
+    elif alice_data.type == "BB84" and bob_data.type == "BB84":
+        alice_data, bob_data = quantum_compute_bb84(alice_data, bob_data)
+    
+    else:
+        print("Error with inputs")
+        exit(1)
 
     with open(alice_fname, "w") as f:
         json.dump(alice_data, f)
@@ -250,4 +335,4 @@ if __name__ == "__main__":
         print("Usage: python3 quantum-computer.py alice_filename bob_filename")
         exit(1)
     
-    main(sys.argv[1], sys.argv[2])
+    run_quantum_circuits(sys.argv[1], sys.argv[2])
