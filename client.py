@@ -86,13 +86,12 @@ def generate_guesses(outfile, key_length, qkd_type):
         print("QKD TYPE ERROR")
     
     # output to json file
-    with open(outfile) as fp:
+    with open(outfile, "w") as fp:
         json.dump(json_output, fp)
 
 if __name__ == "__main__":
-
     if  len(sys.argv) != 4:
-        print("Usage: python3 key_generation.py [outfile name] [key length] [qkd type 'Bell' or 'BB84']")
+        print("Usage: python3 client.py [outfile name] [key length] [qkd type 'Bell' or 'BB84']")
         exit(1)
 
     outfile = sys.argv[1]

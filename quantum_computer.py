@@ -19,20 +19,23 @@ import sys
 
 from qiskit import execute
 from qiskit.circuit import QuantumRegister, ClassicalRegister, QuantumCircuit
-
 from quantuminspire.credentials import get_basic_authentication
 from quantuminspire.qiskit import QI
+global QI_BACKEND
 
-# print("Authenticating")
-QI_URL = os.getenv('API_URL', 'https://api.quantum-inspire.com/')
+def authentication():
+    global QI_BACKEND
+    print("Authenticating")
+    QI_URL = os.getenv('API_URL', 'https://api.quantum-inspire.com/')
 
-with open("qi-auth.json", "r") as f:
-    auth = json.load(f)
+    with open("qi-auth.json", "r") as f:
+        auth = json.load(f)
 
-project_name = 'Keytanglement'
-authentication = get_basic_authentication(auth["email"], auth["pass"])
-QI.set_authentication(authentication, QI_URL, project_name=project_name)
-QI_BACKEND = QI.get_backend('QX single-node simulator')
+    project_name = 'Keytanglement'
+    authentication = get_basic_authentication(auth["email"], auth["pass"])
+    QI.set_authentication(authentication, QI_URL, project_name=project_name)
+    QI_BACKEND = QI.get_backend('QX single-node simulator')
+    print("Success")
 
 #####################
 # Bell State Set Up #
@@ -81,7 +84,7 @@ def circuit00(pairs):
 
     phi_plus(q[pairs.bit0], q[pairs.bit1], qc)
     phi_minus(q[pairs.bit2], q[pairs.bit3], qc)
-    print("Alice chose group 00")
+    ##print("Alice chose group 00")
     # print(qc)
     return qc, q
 
@@ -92,7 +95,7 @@ def circuit01(pairs):
 
     phi_minus(q[pairs.bit0], q[pairs.bit1], qc)
     phi_plus(q[pairs.bit2], q[pairs.bit3], qc)
-    print("Alice chose group 01")
+    #print("Alice chose group 01")
     # print(qc)
     return qc, q
 
@@ -103,7 +106,7 @@ def circuit10(pairs):
 
     psi_plus(q[pairs.bit0], q[pairs.bit1], qc)
     psi_minus(q[pairs.bit2], q[pairs.bit3], qc)
-    print("Alice chose group 10")
+    #print("Alice chose group 10")
     # print(qc)
     return qc, q
 
@@ -114,7 +117,7 @@ def circuit11(pairs):
 
     psi_minus(q[pairs.bit0], q[pairs.bit1], qc)
     psi_plus(q[pairs.bit2], q[pairs.bit3], qc)
-    print("Alice chose group 11")
+    #print("Alice chose group 11")
     # print(qc)
     return qc, q
 
@@ -185,16 +188,16 @@ def run_circuit(qc):
 def verify_circuit_bell(qc):
     histogram = run_circuit(qc)
 
-    # If Bob guessed Alice's qubit-pairs and Bell states correctly,
-    # the final state of all qubits should be 0s
+    #If Bob guessed Alice's qubit-pairs and Bell states correctly,
+    #the final state of all qubits should be 0s
     state_list = list(histogram.keys())
     if (len(state_list) == 1 and state_list[0] == "0000"):
         return 1, state_list
     return 0, state_list
 
 def verify_circuit_bb84(qc):
-    #TODO need to return measurement as well
     histogram = run_circuit(qc)
+    #print(qc)
 
     state_list = list(histogram.keys())
     if (len(state_list) == 1):
@@ -262,17 +265,17 @@ def quantum_compute_bell(alice_data, bob_data):
             correct_guesses.append(i)
 
     alice_data["correct_measurements"] = correct_guesses
-    bob_data["correct-measurements"] = correct_guesses
+    bob_data["correct_measurements"] = correct_guesses
 
     return alice_data, bob_data
 
 def quantum_compute_bb84(alice_data, bob_data):
-    alice_init = alice_data.init
-    alice_bases = alice_data.bases
+    alice_init = alice_data["init"]
+    alice_bases = alice_data["bases"]
     num_qbits = 1 #only need 1 qubit per circuit for bb84
 
 
-    bob_bases = bob_data.bases
+    bob_bases = bob_data["bases"]
 
     correct_guesses = []
     bob_measurements = []
@@ -303,7 +306,7 @@ def quantum_compute_bb84(alice_data, bob_data):
             correct_guesses.append(i)
 
     alice_data["correct_measurements"] = correct_guesses
-    bob_data["correct-measurements"] = correct_guesses
+    bob_data["correct_measurements"] = correct_guesses
     bob_data["measurements"] = bob_measurements
 
     return alice_data, bob_data
@@ -313,11 +316,12 @@ def run_quantum_circuits(alice_fname, bob_fname):
         alice_data = json.load(f)
     with open(bob_fname, "r") as f:
         bob_data = json.load(f)
+    authentication()
 
-    if alice_data.type == "Bell" and bob_data.type == "Bell":
+    if alice_data["type"] == "Bell" and bob_data["type"] == "Bell":
         alice_data, bob_data = quantum_compute_bell(alice_data, bob_data)
     
-    elif alice_data.type == "BB84" and bob_data.type == "BB84":
+    elif alice_data["type"] == "BB84" and bob_data["type"]== "BB84":
         alice_data, bob_data = quantum_compute_bb84(alice_data, bob_data)
     
     else:

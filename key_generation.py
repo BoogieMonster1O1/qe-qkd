@@ -3,7 +3,6 @@
 ' Classical communication from architecture
 ' Alexander
 '''
-from re import A
 import sys
 import json
 import random
@@ -23,7 +22,6 @@ def check_eavesdropper_bell(alice_json, bob_json, check_index):
         raise AttackerError()
 
 def check_eavesdropper_bb84(alice_json, bob_json, check_index):
-    indices = alice_json["correct measurements"]
     alice_init_bases = alice_json["bases"]
     bob_init_bases = bob_json["bases"]
 
@@ -35,6 +33,9 @@ qkd_eavesdropper_check = {"Bell": check_eavesdropper_bell, "BB84": check_eavesdr
 def check_results_for_eavesdropper(alice_json, bob_json, correction_bits, qkd_type):
     indices = alice_json["correct_measurements"]
 
+    if not indices: #check if empty
+        return
+    #print(alice_json["correct_measurements"])
     random.seed()
 
     i = 0
@@ -52,7 +53,9 @@ def check_results_for_eavesdropper(alice_json, bob_json, correction_bits, qkd_ty
         i += 1
 
     alice_json["correct_measurements"] = indices
-    bob_json["correct_measurments"] = indices
+    bob_json["correct_measurements"] = indices
+    alice_json["check_index"] = check_index
+    #print(alice_json["correct_measurements"])
 
     return alice_json, bob_json
     
@@ -68,8 +71,9 @@ def generate_bell_key(json):
     return key
 
 def generate_bb84_key(json):
-    indices = json["correct measurements"]
+    indices = json["correct_measurements"]
     init_bases = json["bases"]
+    #print("Generating key", json["correct_measurements"])
     #generate key
     key = ""
     for i in indices:
@@ -77,18 +81,16 @@ def generate_bb84_key(json):
             key += '0'
         elif init_bases[i] == 'X':
             key += '1'
-    #TODO: add two bits?
-
     return key
 
 
 def generate_keys(alice_fname, bob_fname, correction_bits):
     #alice and bob's guesses have gone through a QC
 
-    with open(alice_fname, "r") as f:
-        alice_json = json.load(f)
-    with open(bob_fname, "r") as f:
-        bob_json = json.load(f)
+    with open(alice_fname, "r") as f_alice:
+        alice_json = json.load(f_alice)
+    with open(bob_fname, "r") as f_bob:
+        bob_json = json.load(f_bob)
 
     qkd_type = alice_json["type"]
 
@@ -105,10 +107,10 @@ def generate_keys(alice_fname, bob_fname, correction_bits):
         bob_json["key"] = generate_bb84_key(bob_json)
 
     #Send codes to users
-    with open(alice_fname, "w") as f:
-        json.dump(alice_json, f)
-    with open(bob_fname, "w"):
-        json.dump(bob_json, f)
+    with open(alice_fname, "w") as f_alice:
+        json.dump(alice_json, f_alice)
+    with open(bob_fname, "w") as f_bob:
+        json.dump(bob_json, f_bob)
 
 
 if __name__ == "__main__":

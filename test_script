@@ -1,0 +1,19 @@
+#!/bin/bash
+
+touch "results.csv"
+echo "8 bit attempts Bell QKD"
+python3 qkd.py 8 Bell run1
+python3 qkd.py 8 Bell run2
+python3 qkd.py 8 Bell run3
+python3 qkd.py 8 Bell run4
+python3 qkd.py 8 Bell run5
+
+
+echo "8 bit attempts BB84 QKD"
+python3 qkd.py 8 BB84 run1
+python3 qkd.py 8 BB84 run2
+python3 qkd.py 8 BB84 run3
+python3 qkd.py 8 BB84 run4
+python3 qkd.py 8 BB84 run5
+
+mv *run*.json old_jsons
