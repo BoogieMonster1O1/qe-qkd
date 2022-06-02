@@ -29,9 +29,15 @@ bell_state_grouping = [0, 1, 2, 3]
 
 measurement_basis = ['X', 'Z']
 
-def generate_BB84_guess(key_length):
+def generate_BB84_guess(key_length, seed=-1):
     #decide whether to use X basis or right basis
-    random.seed()
+
+    #set up randomness
+    if seed == -1:
+        random.seed()
+    else:
+        random.seed(seed)
+    
     bases = []
     init = []   #alice inits in either 0 or 1
 
@@ -54,9 +60,14 @@ def generate_BB84_guess(key_length):
 
 
 
-def generate_pairings_and_groupings_bell(key_length):
+def generate_pairings_and_groupings_bell(key_length, seed=-1):
     #start random generation
-    random.seed() #uses system time
+    #set up randomness
+    if seed == -1:
+        random.seed()
+    else:
+        random.seed(seed)
+
     pairings = []
     groupings = []
 
@@ -76,12 +87,12 @@ def generate_pairings_and_groupings_bell(key_length):
 
     return json_output
 
-def generate_guesses(outfile, key_length, qkd_type):
+def generate_guesses(outfile, key_length, qkd_type, seed=-1):
     
     if qkd_type == "Bell":
-        json_output = generate_pairings_and_groupings_bell(key_length)
+        json_output = generate_pairings_and_groupings_bell(key_length, seed)
     elif qkd_type == "BB84":
-        json_output = generate_BB84_guess(key_length)
+        json_output = generate_BB84_guess(key_length, seed)
     else:
         print("QKD TYPE ERROR")
     

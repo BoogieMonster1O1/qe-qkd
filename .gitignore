@@ -9,4 +9,5 @@ qi-auth.json
 
 # temp files
 *.json
-
+*.csv
+*.json
